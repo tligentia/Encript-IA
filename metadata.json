@@ -1,0 +1,5 @@
+{
+  "name": "Encript IA ✅",
+  "description": "Una herramienta sencilla para encriptar y desencriptar texto usando una frase secreta. La misma frase usada para la encriptación desencriptará el contenido a su forma original.",
+  "requestFramePermissions": []
+}

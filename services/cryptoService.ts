@@ -2,7 +2,7 @@
 import type React from 'react';
 
 // --- SHARED TYPES ---
-export type AlgorithmId = 'AES' | 'XOR' | 'CAESAR' | 'REVERSE' | 'BASE64';
+export type AlgorithmId = 'AES' | 'XOR' | 'CAESAR' | 'BASE64';
 
 export interface Algorithm {
   id: AlgorithmId;
@@ -83,14 +83,6 @@ const caesarCipher = (text: string, key: string, decrypt = false): string => {
     }).join('');
 };
 
-// --- REVERSE CIPHER ---
-const reverseCipher = (text: string, key: string): string => {
-  if (isNaN(parseInt(key, 10)) || !/^\d+$/.test(key)) {
-    throw new Error("Para el cifrado inverso, la clave debe ser un número entero positivo.");
-  }
-  return text.split('').reverse().join('');
-};
-
 // --- BASE64 CIPHER ---
 // Handles UTF-8 characters correctly
 const base64Encode = (text: string) => btoa(unescape(encodeURIComponent(text)));
@@ -129,8 +121,6 @@ export const encrypt = async (text: string, key: string, algorithm: AlgorithmId)
     }
     case 'CAESAR':
       return caesarCipher(text, key);
-    case 'REVERSE':
-      return reverseCipher(text, key);
     case 'BASE64':
       return base64Encode(text);
     default:
@@ -178,8 +168,6 @@ export const decrypt = async (cipherText: string, key: string, algorithm: Algori
       }
     case 'CAESAR':
       return caesarCipher(cipherText, key, true);
-    case 'REVERSE':
-      return reverseCipher(cipherText, key); // Decrypt is same as encrypt
     case 'BASE64':
       try {
         return base64Decode(cipherText);

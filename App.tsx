@@ -3,7 +3,7 @@ import { ALGORITHMS, SECRET_PHRASES } from './constants';
 import { encrypt, decrypt, AlgorithmId, ValidationResult, PasswordStrength } from './services/cryptoService';
 import { EyeIcon, EyeSlashedIcon, WandIcon, TrashIcon, ClipboardIcon, CheckIcon, ArrowUpCircleIcon, XCircleIcon, CheckCircleIcon, XIcon, AesIcon } from './components/icons';
 import Footer from './components/Footer';
-import PrivacyModal from './components/PrivacyModal';
+import LoginGuard from './components/LoginOverlay';
 
 // --- UTILS ---
 const playCopySound = () => {
@@ -201,17 +201,61 @@ const Toast: React.FC<ToastProps> = ({ message, onClose }) => {
 
 
 const App: React.FC = () => {
+  const [isIpCheckLoading, setIsIpCheckLoading] = useState(true);
+  const [userIp, setUserIp] = useState<string | null>(null);
+  const [isIpWhitelisted, setIsIpWhitelisted] = useState(false);
   const [content, setContent] = useState<string>('');
   const [secretPhrase, setSecretPhrase] = useState<string>('');
   const [isSecretVisible, setIsSecretVisible] = useState<boolean>(false);
   const [selectedAlgorithm, setSelectedAlgorithm] = useLocalStorage<AlgorithmId>('encrypt-ia-selected-algorithm', 'AES');
   const [resultKey, setResultKey] = useState(0);
-  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
 
   const { validation, strength: passwordStrength } = useSecretPhraseValidation(secretPhrase);
   const { result, isLoading, error, lastOperation, handleOperation, clearResult, setError } = useCryptoOperations();
   const { isCopied, copy: handleCopy } = useClipboard(result);
   
+  useEffect(() => {
+    const checkIp = async () => {
+      const allowedIps = ['83.45.135.87', '37.223.23.214'];
+      const ipServices = [
+        'https://ipinfo.io/json',
+        'https://api.ipify.org?format=json',
+      ];
+      
+      let currentUserIp: string | null = null;
+
+      for (const url of ipServices) {
+        try {
+          const response = await fetch(url, { headers: { 'Accept': 'application/json' }});
+          if (!response.ok) throw new Error(`Service ${url} failed with status ${response.status}`);
+          const data = await response.json();
+          if (data && data.ip) {
+            currentUserIp = data.ip;
+            break; 
+          }
+        } catch (e) {
+          console.warn(`Could not fetch IP from ${url}:`, e);
+        }
+      }
+
+      try {
+        if (currentUserIp) {
+            setUserIp(currentUserIp);
+            if (allowedIps.includes(currentUserIp)) {
+              setIsIpWhitelisted(true);
+            }
+        } else {
+            throw new Error('All IP services failed');
+        }
+      } catch (error) {
+        console.error("IP check failed:", error);
+      } finally {
+        setIsIpCheckLoading(false);
+      }
+    };
+    checkIp();
+  }, []);
+
   const activeAlgorithm = useMemo(() => ALGORITHMS.find(a => a.id === selectedAlgorithm), [selectedAlgorithm]);
 
   const handleEncrypt = () => {
@@ -249,113 +293,125 @@ const App: React.FC = () => {
     }
   }, [validation.status]);
 
+  if (isIpCheckLoading) {
+    return (
+      <div className="bg-gray-100 min-h-screen flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-dashed rounded-full animate-spin border-red-600" role="status">
+          <span className="sr-only">Cargando...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-gray-100 text-gray-800 min-h-screen flex items-center justify-center p-3 sm:p-4">
-      <Toast message={error} onClose={() => setError(null)} />
-      <PrivacyModal isOpen={isPrivacyModalOpen} onClose={() => setIsPrivacyModalOpen(false)} />
-      <main className="bg-white border border-gray-200 p-4 rounded-xl shadow-xl w-full max-w-4xl space-y-4">
-        <header className="flex justify-between items-start">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <AesIcon className="h-7 w-7 sm:h-8 sm:w-8 text-red-600 flex-shrink-0" />
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-                Encript <span className="text-red-600">IA</span>
-              </h1>
-              <p className="text-gray-500 text-xs sm:text-sm mt-1">
-                Protege tu texto con cifrado de nivel militar.
-              </p>
-            </div>
-          </div>
-           <button onClick={handleClear} className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-100 rounded-full transition-all duration-200" aria-label="Limpiar todo">
-            <TrashIcon className="h-5 w-5" />
-          </button>
-        </header>
-
-        <div className="grid md:grid-cols-2 md:gap-4 space-y-4 md:space-y-0">
-          {/* Columna Izquierda: Controles */}
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1.5">Algoritmo de Encriptación</label>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                {ALGORITHMS.map(algo => (
-                  <button key={algo.id} onClick={() => setSelectedAlgorithm(algo.id)} title={algo.tooltip} className={`p-2 border rounded-lg flex flex-col items-center justify-center text-center transition-all duration-200 ${selectedAlgorithm === algo.id ? 'bg-red-50 border-red-600 ring-1 ring-red-600' : 'bg-white border-gray-300 hover:border-red-500'}`} aria-pressed={selectedAlgorithm === algo.id}>
-                    <algo.icon className={`h-5 w-5 mb-1 ${selectedAlgorithm === algo.id ? 'text-red-600' : 'text-gray-500'}`} />
-                    <span className="text-xs font-semibold">{algo.name}</span>
-                  </button>
-                ))}
+    <LoginGuard isIpWhitelisted={isIpWhitelisted}>
+      <div className="bg-gray-100 text-gray-800 min-h-screen flex items-center justify-center p-3 sm:p-4">
+        <Toast message={error} onClose={() => setError(null)} />
+        
+        <main className="bg-white border border-gray-200 p-4 rounded-xl shadow-xl w-full max-w-4xl space-y-4">
+          <header className="flex justify-between items-start">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <AesIcon className="h-7 w-7 sm:h-8 sm:w-8 text-red-600 flex-shrink-0" />
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+                  Encript <span className="text-red-600">IA</span>
+                </h1>
+                <p className="text-gray-500 text-xs sm:text-sm mt-1">
+                  Protege tu texto con cifrado de nivel militar.
+                </p>
               </div>
-              {activeAlgorithm && <p className="text-xs text-gray-500 mt-2">{activeAlgorithm.description}</p>}
             </div>
+             <button onClick={handleClear} className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-100 rounded-full transition-all duration-200" aria-label="Limpiar todo">
+              <TrashIcon className="h-5 w-5" />
+            </button>
+          </header>
 
-            <div>
-              <label htmlFor="secret-phrase" className="block text-xs font-medium text-gray-700 mb-1.5">Frase Secreta</label>
-              <div className="relative flex items-center">
-                <input
-                  id="secret-phrase"
-                  type={isSecretVisible ? 'text' : 'password'}
-                  value={secretPhrase}
-                  onChange={(e) => setSecretPhrase(e.target.value)}
-                  placeholder={activeAlgorithm?.id === 'REVERSE' ? 'Introduce una clave numérica...' : 'Introduce tu frase secreta...'}
-                  className={`w-full text-sm bg-white border rounded-md h-8 pl-3 pr-24 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 transition ${inputBorderClasses}`}
-                  aria-invalid={validation.status === 'invalid'}
-                  aria-describedby="secret-phrase-validation"
-                />
-                <div className="absolute right-1.5 flex items-center space-x-1.5">
-                  {validation.status === 'valid' && <CheckCircleIcon className="h-4 w-4 text-green-500" />}
-                  {validation.status === 'invalid' && <XCircleIcon className="h-4 w-4 text-red-500" />}
-                  <button onClick={handleGeneratePhrase} aria-label="Generar frase secreta" className="text-gray-400 hover:text-gray-800"><WandIcon className="h-4 w-4" /></button>
-                  <button onClick={() => setIsSecretVisible(p => !p)} aria-label={isSecretVisible ? 'Ocultar' : 'Mostrar'} className="text-gray-400 hover:text-gray-800">{isSecretVisible ? <EyeSlashedIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}</button>
+          <div className="grid md:grid-cols-2 md:gap-4 space-y-4 md:space-y-0">
+            {/* Columna Izquierda: Controles */}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">Algoritmo de Encriptación</label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {ALGORITHMS.map(algo => (
+                    <button key={algo.id} onClick={() => setSelectedAlgorithm(algo.id)} title={algo.tooltip} className={`p-2 border rounded-lg flex flex-col items-center justify-center text-center transition-all duration-200 ${selectedAlgorithm === algo.id ? 'bg-red-50 border-red-600 ring-1 ring-red-600' : 'bg-white border-gray-300 hover:border-red-500'}`} aria-pressed={selectedAlgorithm === algo.id}>
+                      <algo.icon className={`h-5 w-5 mb-1 ${selectedAlgorithm === algo.id ? 'text-red-600' : 'text-gray-500'}`} />
+                      <span className="text-xs font-semibold">{algo.name}</span>
+                    </button>
+                  ))}
+                </div>
+                {activeAlgorithm && <p className="text-xs text-gray-500 mt-2">{activeAlgorithm.description}</p>}
+              </div>
+
+              <div>
+                <label htmlFor="secret-phrase" className="block text-xs font-medium text-gray-700 mb-1.5">Frase Secreta</label>
+                <div className="relative flex items-center">
+                  <input
+                    id="secret-phrase"
+                    type={isSecretVisible ? 'text' : 'password'}
+                    value={secretPhrase}
+                    onChange={(e) => setSecretPhrase(e.target.value)}
+                    placeholder="Introduce tu frase secreta..."
+                    className={`w-full text-sm bg-white border rounded-md h-8 pl-3 pr-24 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 transition ${inputBorderClasses}`}
+                    aria-invalid={validation.status === 'invalid'}
+                    aria-describedby="secret-phrase-validation"
+                  />
+                  <div className="absolute right-1.5 flex items-center space-x-1.5">
+                    {validation.status === 'valid' && <CheckCircleIcon className="h-4 w-4 text-green-500" />}
+                    {validation.status === 'invalid' && <XCircleIcon className="h-4 w-4 text-red-500" />}
+                    <button onClick={handleGeneratePhrase} aria-label="Generar frase secreta" className="text-gray-400 hover:text-gray-800"><WandIcon className="h-4 w-4" /></button>
+                    <button onClick={() => setIsSecretVisible(p => !p)} aria-label={isSecretVisible ? 'Ocultar' : 'Mostrar'} className="text-gray-400 hover:text-gray-800">{isSecretVisible ? <EyeSlashedIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}</button>
+                  </div>
+                </div>
+                {validation.message && <p id="secret-phrase-validation" className={`text-xs mt-1 ${validation.status === 'valid' ? 'text-green-600' : 'text-red-600'}`}>{validation.message}</p>}
+                <div className="mt-2">
+                    <div className="flex justify-between items-center mb-1">
+                        <span className="text-xs font-medium text-gray-600">Calidad de la clave:</span>
+                        <span className={`text-xs font-bold ${passwordStrength.textColor}`}>{passwordStrength.label}</span>
+                    </div>
+                    <div className="bg-gray-200 rounded-full h-1.5 w-full overflow-hidden">
+                        <div className={`h-1.5 rounded-full ${passwordStrength.color} transition-all duration-300 ease-in-out`} style={{ width: passwordStrength.width }}></div>
+                    </div>
                 </div>
               </div>
-              {validation.message && <p id="secret-phrase-validation" className={`text-xs mt-1 ${validation.status === 'valid' ? 'text-green-600' : 'text-red-600'}`}>{validation.message}</p>}
-              <div className="mt-2">
-                  <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs font-medium text-gray-600">Calidad de la clave:</span>
-                      <span className={`text-xs font-bold ${passwordStrength.textColor}`}>{passwordStrength.label}</span>
-                  </div>
-                  <div className="bg-gray-200 rounded-full h-1.5 w-full overflow-hidden">
-                      <div className={`h-1.5 rounded-full ${passwordStrength.color} transition-all duration-300 ease-in-out`} style={{ width: passwordStrength.width }}></div>
-                  </div>
+
+              <div>
+                <label htmlFor="content" className="block text-xs font-medium text-gray-700 mb-1.5">Contenido Original / Cifrado</label>
+                <textarea id="content" value={content} onChange={(e) => setContent(e.target.value)} rows={5} placeholder="Escribe o pega el contenido aquí..." className="w-full text-sm bg-white border border-gray-300 rounded-md p-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500 transition"/>
               </div>
             </div>
 
-            <div>
-              <label htmlFor="content" className="block text-xs font-medium text-gray-700 mb-1.5">Contenido Original / Cifrado</label>
-              <textarea id="content" value={content} onChange={(e) => setContent(e.target.value)} rows={5} placeholder="Escribe o pega el contenido aquí..." className="w-full text-sm bg-white border border-gray-300 rounded-md p-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500 transition"/>
-            </div>
-          </div>
-
-          {/* Columna Derecha: Acciones y Resultado */}
-          <div className="space-y-3 flex flex-col">
-            <div className="flex items-center gap-3">
-              <button onClick={handleEncrypt} disabled={isLoading} className="flex-1 text-sm h-8 px-4 py-2 bg-gray-900 text-white font-semibold rounded-md shadow-sm hover:bg-black focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100">{isLoading ? 'Encriptando...' : 'Encriptar'}</button>
-              <button onClick={handleDecrypt} disabled={isLoading} className="flex-1 text-sm h-8 px-4 py-2 bg-gray-700 text-white font-semibold rounded-md shadow-sm hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100">{isLoading ? 'Desencriptando...' : 'Desencriptar'}</button>
-            </div>
-            
-            <div key={resultKey} className={`pt-2 flex-grow flex flex-col ${result ? 'animate-fade-in' : 'justify-center items-center bg-gray-50 rounded-lg border-2 border-dashed'}`}>
-              {result ? (
-                <>
-                  <label htmlFor="result" className="block text-xs font-medium text-gray-700 mb-1.5">Resultado ({lastOperation === 'encrypt' ? 'Encriptado' : 'Desencriptado'})</label>
-                  <div className="relative h-full">
-                    <textarea id="result" value={result} readOnly rows={5} className="w-full h-full text-sm bg-gray-50 border border-gray-300 rounded-md p-2 pr-16 text-gray-900 cursor-copy focus:outline-none focus:ring-1 focus:ring-red-500" onClick={(e) => (e.target as HTMLTextAreaElement).select()} />
-                    <div className="absolute top-2 right-2 flex items-center space-x-1">
-                        <button onClick={handleMoveResultToContent} title="Mover resultado a contenido" className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-full transition-all" aria-label="Mover resultado a contenido"><ArrowUpCircleIcon className="h-4 w-4" /></button>
-                        <button onClick={handleCopy} title={isCopied ? "¡Copiado!" : "Copiar al portapapeles"} className={`p-1.5 rounded-full transition-all duration-200 ease-in-out ${isCopied ? 'bg-green-100' : 'hover:bg-gray-100'}`} aria-label="Copiar">
-                            {isCopied ? <CheckIcon className="h-4 w-4 text-green-600" /> : <ClipboardIcon className="h-4 w-4 text-gray-500" />}
-                        </button>
+            {/* Columna Derecha: Acciones y Resultado */}
+            <div className="space-y-3 flex flex-col">
+              <div className="flex items-center gap-3">
+                <button onClick={handleEncrypt} disabled={isLoading} className="flex-1 text-sm h-8 px-4 py-2 bg-gray-900 text-white font-semibold rounded-md shadow-sm hover:bg-black focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100">{isLoading ? 'Encriptando...' : 'Encriptar'}</button>
+                <button onClick={handleDecrypt} disabled={isLoading} className="flex-1 text-sm h-8 px-4 py-2 bg-gray-700 text-white font-semibold rounded-md shadow-sm hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100">{isLoading ? 'Desencriptando...' : 'Desencriptar'}</button>
+              </div>
+              
+              <div key={resultKey} className={`pt-2 flex-grow flex flex-col ${result ? 'animate-fade-in' : 'justify-center items-center bg-gray-50 rounded-lg border-2 border-dashed'}`}>
+                {result ? (
+                  <>
+                    <label htmlFor="result" className="block text-xs font-medium text-gray-700 mb-1.5">Resultado ({lastOperation === 'encrypt' ? 'Encriptado' : 'Desencriptado'})</label>
+                    <div className="relative h-full">
+                      <textarea id="result" value={result} readOnly rows={5} className="w-full h-full text-sm bg-gray-50 border border-gray-300 rounded-md p-2 pr-16 text-gray-900 cursor-copy focus:outline-none focus:ring-1 focus:ring-red-500" onClick={(e) => (e.target as HTMLTextAreaElement).select()} />
+                      <div className="absolute top-2 right-2 flex items-center space-x-1">
+                          <button onClick={handleMoveResultToContent} title="Mover resultado a contenido" className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-full transition-all" aria-label="Mover resultado a contenido"><ArrowUpCircleIcon className="h-4 w-4" /></button>
+                          <button onClick={handleCopy} title={isCopied ? "¡Copiado!" : "Copiar al portapapeles"} className={`p-1.5 rounded-full transition-all duration-200 ease-in-out ${isCopied ? 'bg-green-100' : 'hover:bg-gray-100'}`} aria-label="Copiar">
+                              {isCopied ? <CheckIcon className="h-4 w-4 text-green-600" /> : <ClipboardIcon className="h-4 w-4 text-gray-500" />}
+                          </button>
+                      </div>
                     </div>
-                  </div>
-                </>
-              ) : (<p className="text-gray-400 text-sm">El resultado aparecerá aquí</p>)}
+                  </>
+                ) : (<p className="text-gray-400 text-sm">El resultado aparecerá aquí</p>)}
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="border-t border-gray-200 pt-4">
-          <Footer onManageCookies={() => setIsPrivacyModalOpen(true)} />
-        </div>
-      </main>
-    </div>
+          <div className="border-t border-gray-200 pt-4">
+            <Footer userIp={userIp} isIpWhitelisted={isIpWhitelisted} />
+          </div>
+        </main>
+      </div>
+    </LoginGuard>
   );
 };
 

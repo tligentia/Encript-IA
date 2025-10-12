@@ -1,4 +1,4 @@
-import { AesIcon, XorIcon, CaesarIcon, ReverseIcon, Base64Icon } from './components/icons';
+import { AesIcon, XorIcon, CaesarIcon, Base64Icon } from './components/icons';
 import { Algorithm } from './services/cryptoService';
 
 export const SECRET_PHRASES: string[] = [
@@ -35,13 +35,6 @@ export const ALGORITHMS: Algorithm[] = [
     icon: CaesarIcon,
     description: 'Cifrado clásico por desplazamiento de caracteres.',
     tooltip: 'Un cifrado histórico que desplaza letras. Fácil de romper por análisis de frecuencia. No usar para datos sensibles.',
-  },
-  {
-    id: 'REVERSE',
-    name: 'Inverso',
-    icon: ReverseIcon,
-    description: 'Invierte el texto. Requiere una clave puramente numérica.',
-    tooltip: 'Simplemente invierte el orden del texto. No ofrece seguridad real y es trivial de descifrar. Útil solo para ofuscación básica.',
   },
   {
     id: 'BASE64',

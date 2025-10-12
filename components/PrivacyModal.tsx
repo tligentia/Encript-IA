@@ -4,9 +4,11 @@ import { XIcon } from './icons';
 interface PrivacyModalProps {
   isOpen: boolean;
   onClose: () => void;
+  userIp: string | null;
+  isIpWhitelisted: boolean;
 }
 
-const PrivacyModal: React.FC<PrivacyModalProps> = ({ isOpen, onClose }) => {
+const PrivacyModal: React.FC<PrivacyModalProps> = ({ isOpen, onClose, userIp, isIpWhitelisted }) => {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -78,8 +80,19 @@ const PrivacyModal: React.FC<PrivacyModalProps> = ({ isOpen, onClose }) => {
             </p>
           </div>
           
+          {userIp && (
+            <div className="pt-2">
+              <p className="text-gray-600">
+                Tu dirección IP de origen es:{' '}
+                <span className={`font-semibold ${isIpWhitelisted ? 'text-green-600' : 'text-gray-800'}`}>
+                  {userIp}
+                </span>
+              </p>
+            </div>
+          )}
+
           <p className="text-xs text-gray-500 pt-2">
-            Versión 2025.v10B
+            Versión 2025.v10C
           </p>
           
           <p>

@@ -151,20 +151,22 @@ export const decrypt = async (cipherText: string, key: string, algorithm: Algori
                 return textDecoder.decode(decryptedData);
             } catch (error) {
                 console.error("AES decryption failed:", error);
-                throw new Error("La desencriptación falló. La frase secreta podría ser incorrecta o el contenido está corrupto.");
+                throw new Error("La desencriptación falló. Esto suele ocurrir por una frase secreta incorrecta o porque el contenido cifrado está corrupto o incompleto.");
             }
     case 'XOR':
       try {
         const cipherBytes = base64ToUint8Array(cipherText);
         const decryptedBytes = xorCipher(cipherBytes, key);
-        // UTF-8 decoding with error checking
         const textDecoder = new TextDecoder('utf-8', { fatal: true });
         return textDecoder.decode(decryptedBytes);
       } catch (error) {
+        if (error instanceof TypeError) {
+             throw new Error("La desencriptación falló. La frase secreta parece ser incorrecta, ya que el resultado no es un texto válido.");
+        }
         if (error instanceof DOMException && error.name === 'InvalidCharacterError') {
              throw new Error("La desencriptación falló. El contenido no es un texto cifrado válido (formato Base64 incorrecto).");
         }
-        throw new Error("La desencriptación falló. La frase secreta podría ser incorrecta.");
+        throw new Error("La desencriptación falló. La frase secreta podría ser incorrecta o el contenido está corrupto.");
       }
     case 'CAESAR':
       return caesarCipher(cipherText, key, true);

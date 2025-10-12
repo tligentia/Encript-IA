@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { ALGORITHMS, SECRET_PHRASES } from './constants';
 import { encrypt, decrypt, AlgorithmId, ValidationResult, PasswordStrength } from './services/cryptoService';
-import { EyeIcon, EyeSlashedIcon, WandIcon, TrashIcon, ClipboardIcon, CheckIcon, ArrowUpCircleIcon, XCircleIcon, CheckCircleIcon, XIcon, AesIcon } from './components/icons';
+import { EyeIcon, EyeSlashedIcon, WandIcon, TrashIcon, ClipboardIcon, CheckIcon, ArrowUpCircleIcon, XCircleIcon, CheckCircleIcon, XIcon, AesIcon, BookOpenIcon } from './components/icons';
 import Footer from './components/Footer';
 import LoginGuard from './components/LoginOverlay';
+import Tutorial from './components/Tutorial';
 
 // --- UTILS ---
 const playCopySound = () => {
@@ -30,6 +31,9 @@ const playCopySound = () => {
 // --- CUSTOM HOOKS ---
 function useLocalStorage<T>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
   const [storedValue, setStoredValue] = useState<T>(() => {
+    if (typeof window === 'undefined') {
+      return initialValue;
+    }
     try {
       const item = window.localStorage.getItem(key);
       return item ? JSON.parse(item) : initialValue;
@@ -40,6 +44,9 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, React.Dispatch<Re
   });
 
   useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
     try {
       const valueToStore = typeof storedValue === 'function' ? storedValue(storedValue) : storedValue;
       window.localStorage.setItem(key, JSON.stringify(valueToStore));
@@ -157,14 +164,11 @@ const Toast: React.FC<ToastProps> = ({ message, onClose }) => {
             setIsVisible(true);
             const timer = setTimeout(() => {
                 setIsVisible(false);
+                 // Allow animation to finish before calling the parent's onClose
+                setTimeout(onClose, 300);
             }, 5000);
-            // When the component unmounts or message changes, clear the timer
-            // and ensure the onClose is called if it hasn't been already.
             return () => {
                 clearTimeout(timer);
-                if (isVisible) { // If it was visible, call onClose to sync state
-                    onClose();
-                }
             };
         } else {
             setIsVisible(false);
@@ -173,10 +177,11 @@ const Toast: React.FC<ToastProps> = ({ message, onClose }) => {
 
     const handleClose = () => {
         setIsVisible(false);
-        // Allow animation to finish before calling the parent's onClose
         setTimeout(onClose, 300); 
     };
     
+    if (!message && !isVisible) return null;
+
     return (
         <div
           role="alert"
@@ -210,10 +215,20 @@ const App: React.FC = () => {
   const [selectedAlgorithm, setSelectedAlgorithm] = useLocalStorage<AlgorithmId>('encrypt-ia-selected-algorithm', 'AES');
   const [resultKey, setResultKey] = useState(0);
 
+  const [tutorialCompleted, setTutorialCompleted] = useLocalStorage('tutorial-completed-v1', false);
+  const [isTutorialVisible, setIsTutorialVisible] = useState(false);
+  
   const { validation, strength: passwordStrength } = useSecretPhraseValidation(secretPhrase);
   const { result, isLoading, error, lastOperation, handleOperation, clearResult, setError } = useCryptoOperations();
   const { isCopied, copy: handleCopy } = useClipboard(result);
   
+  useEffect(() => {
+    // Only show tutorial automatically if it hasn't been completed and IP check is done.
+    if (!tutorialCompleted && !isIpCheckLoading) {
+        setIsTutorialVisible(true);
+    }
+  }, [tutorialCompleted, isIpCheckLoading]);
+
   useEffect(() => {
     const checkIp = async () => {
       const allowedIps = ['83.45.135.87', '37.223.23.214'];
@@ -293,6 +308,11 @@ const App: React.FC = () => {
     }
   }, [validation.status]);
 
+  const handleCloseTutorial = () => {
+    setIsTutorialVisible(false);
+    setTutorialCompleted(true);
+  };
+
   if (isIpCheckLoading) {
     return (
       <div className="bg-gray-100 min-h-screen flex items-center justify-center">
@@ -305,6 +325,7 @@ const App: React.FC = () => {
 
   return (
     <LoginGuard isIpWhitelisted={isIpWhitelisted}>
+      {isTutorialVisible && <Tutorial onClose={handleCloseTutorial} />}
       <div className="bg-gray-100 text-gray-800 min-h-screen flex items-center justify-center p-3 sm:p-4">
         <Toast message={error} onClose={() => setError(null)} />
         
@@ -321,9 +342,14 @@ const App: React.FC = () => {
                 </p>
               </div>
             </div>
-             <button onClick={handleClear} className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-100 rounded-full transition-all duration-200" aria-label="Limpiar todo">
-              <TrashIcon className="h-5 w-5" />
-            </button>
+            <div className="flex items-center space-x-1">
+              <button onClick={() => setIsTutorialVisible(true)} className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-100 rounded-full transition-all duration-200" aria-label="Mostrar tutorial">
+                <BookOpenIcon className="h-5 w-5" />
+              </button>
+              <button onClick={handleClear} className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-100 rounded-full transition-all duration-200" aria-label="Limpiar todo">
+                <TrashIcon className="h-5 w-5" />
+              </button>
+            </div>
           </header>
 
           <div className="grid md:grid-cols-2 md:gap-4 space-y-4 md:space-y-0">
@@ -383,8 +409,8 @@ const App: React.FC = () => {
             {/* Columna Derecha: Acciones y Resultado */}
             <div className="space-y-3 flex flex-col">
               <div className="flex items-center gap-3">
-                <button onClick={handleEncrypt} disabled={isLoading} className="flex-1 text-sm h-8 px-4 py-2 bg-gray-900 text-white font-semibold rounded-md shadow-sm hover:bg-black focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100">{isLoading ? 'Encriptando...' : 'Encriptar'}</button>
-                <button onClick={handleDecrypt} disabled={isLoading} className="flex-1 text-sm h-8 px-4 py-2 bg-gray-700 text-white font-semibold rounded-md shadow-sm hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100">{isLoading ? 'Desencriptando...' : 'Desencriptar'}</button>
+                <button onClick={handleEncrypt} disabled={isLoading || validation.status !== 'valid'} className="flex-1 text-sm h-8 px-4 py-2 bg-gray-900 text-white font-semibold rounded-md shadow-sm hover:bg-black focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100">{isLoading ? 'Encriptando...' : 'Encriptar'}</button>
+                <button onClick={handleDecrypt} disabled={isLoading || !secretPhrase} className="flex-1 text-sm h-8 px-4 py-2 bg-gray-700 text-white font-semibold rounded-md shadow-sm hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100">{isLoading ? 'Desencriptando...' : 'Desencriptar'}</button>
               </div>
               
               <div key={resultKey} className={`pt-2 flex-grow flex flex-col ${result ? 'animate-fade-in' : 'justify-center items-center bg-gray-50 rounded-lg border-2 border-dashed'}`}>

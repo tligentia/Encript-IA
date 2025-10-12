@@ -93,7 +93,7 @@ const PrivacyModal: React.FC<PrivacyModalProps> = ({ isOpen, onClose, userIp, is
           )}
 
           <p className="text-xs text-gray-500 pt-2">
-            Versión 2025.v10C
+            Versión 2025.v10D
           </p>
           
           <p>
@@ -128,7 +128,7 @@ const Footer: React.FC<FooterProps> = ({ userIp, isIpWhitelisted }) => {
             />
             <footer className="w-full text-gray-600 text-sm">
                 <div className="flex flex-col sm:flex-row justify-between items-center gap-y-3 sm:gap-x-4">
-                    <span className="font-bold text-red-600">Versión 2025.v10C</span>
+                    <span className="font-bold text-red-600">Versión 2025.v10D</span>
                     
                     <VerticalSeparator />
                     

@@ -3,6 +3,7 @@ import { ALGORITHMS, SECRET_PHRASES } from './constants';
 import { encrypt, decrypt, AlgorithmId, ValidationResult, PasswordStrength } from './services/cryptoService';
 import { EyeIcon, EyeSlashedIcon, WandIcon, TrashIcon, ClipboardIcon, CheckIcon, ArrowUpCircleIcon, XCircleIcon, CheckCircleIcon, XIcon, AesIcon } from './components/icons';
 import Footer from './components/Footer';
+import PrivacyModal from './components/PrivacyModal';
 
 // --- UTILS ---
 const playCopySound = () => {
@@ -205,6 +206,7 @@ const App: React.FC = () => {
   const [isSecretVisible, setIsSecretVisible] = useState<boolean>(false);
   const [selectedAlgorithm, setSelectedAlgorithm] = useLocalStorage<AlgorithmId>('encrypt-ia-selected-algorithm', 'AES');
   const [resultKey, setResultKey] = useState(0);
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
 
   const { validation, strength: passwordStrength } = useSecretPhraseValidation(secretPhrase);
   const { result, isLoading, error, lastOperation, handleOperation, clearResult, setError } = useCryptoOperations();
@@ -250,6 +252,7 @@ const App: React.FC = () => {
   return (
     <div className="bg-gray-100 text-gray-800 min-h-screen flex items-center justify-center p-3 sm:p-4">
       <Toast message={error} onClose={() => setError(null)} />
+      <PrivacyModal isOpen={isPrivacyModalOpen} onClose={() => setIsPrivacyModalOpen(false)} />
       <main className="bg-white border border-gray-200 p-4 rounded-xl shadow-xl w-full max-w-4xl space-y-4">
         <header className="flex justify-between items-start">
           <div className="flex items-center gap-2 sm:gap-3">
@@ -349,7 +352,7 @@ const App: React.FC = () => {
         </div>
 
         <div className="border-t border-gray-200 pt-4">
-          <Footer />
+          <Footer onManageCookies={() => setIsPrivacyModalOpen(true)} />
         </div>
       </main>
     </div>

@@ -5,6 +5,7 @@ import { EyeIcon, EyeSlashedIcon, WandIcon, TrashIcon, ClipboardIcon, CheckIcon,
 import Footer from './components/Footer';
 import LoginGuard from './components/LoginOverlay';
 import Tutorial from './components/Tutorial';
+import { AppMenu } from './components/AppMenu';
 
 // --- UTILS ---
 const playCopySound = () => {
@@ -342,13 +343,14 @@ const App: React.FC = () => {
                 </p>
               </div>
             </div>
-            <div className="flex items-center space-x-1">
+            <div className="flex items-center space-x-2">
               <button onClick={() => setIsTutorialVisible(true)} className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-100 rounded-full transition-all duration-200" aria-label="Mostrar tutorial">
                 <BookOpenIcon className="h-5 w-5" />
               </button>
               <button onClick={handleClear} className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-100 rounded-full transition-all duration-200" aria-label="Limpiar todo">
                 <TrashIcon className="h-5 w-5" />
               </button>
+              <AppMenu />
             </div>
           </header>
 

@@ -44,32 +44,13 @@ export const saveAllowedIps = (ips: string[]) => {
   localStorage.setItem('app_allowed_ips', JSON.stringify(ips));
 };
 
-// --- LÓGICA DE CLAVES (OFUSCACIÓN AVANZADA) ---
-/**
- * Decodifica una cadena ofuscada mediante reversión y base64.
- * @param v Cadena ofuscada
- */
-const _d = (v: string): string => {
-  try {
-    return atob(v.split('').reverse().join(''));
-  } catch (e) {
-    return "";
-  }
-};
-
+// --- LÓGICA DE CLAVES (OFUSCACIÓN BASE64) ---
 export const getShortcutKey = (shortcut: string): string | null => {
   const code = shortcut.toLowerCase().trim();
-  
-  // Acceso Maestro (Nivel 1)
-  if (code === 'ok') {
-    return _d("v_7MENkyO0wx94q8HXJVeYWXQVxbcvxnJlBnYsaziI");
-  }
-  
-  // Acceso Colaborador (Nivel 2)
-  if (code === 'cv') {
-    return _d("OHk5TTE5NHZNdkwwSDlRaE1raTY0VjdsZHlzLUVCNnExQXFTeVNhemlJ");
-  }
-  
+
+  if (code === 'ok') return atob("QUl6YVN5QmxKbnh2Y0F4UVhHWWVHSlhjOHE0OTR4d095a0VNN19v");
+
+  if (code === 'cv') return atob("QUl6YVN5QXExcTZCRS1zeWRsN1Y2aWtNaFE5SDB2TXY0OTFNcHk4");
   return null;
 };
 

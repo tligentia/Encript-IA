@@ -1,6 +1,8 @@
 import { AesIcon, XorIcon, CaesarIcon, Base64Icon } from './components/icons';
 import { Algorithm } from './services/cryptoService';
 
+export const APP_VERSION = 'v25.12F';
+
 export const SECRET_PHRASES: string[] = [
   "Que la Fuerza te acompañe... siempre.",
   "Solo sé que no sé casi nada.",
@@ -20,27 +22,27 @@ export const ALGORITHMS: Algorithm[] = [
     name: 'AES-256',
     icon: AesIcon,
     description: 'Cifrado de grado militar. El estándar de oro en seguridad.',
-    tooltip: 'AES-256 (GCM). Estándar de encriptación simétrica usado por gobiernos y corporaciones. Extremadamente seguro y recomendado para todos los datos sensibles.',
+    tooltip: 'AES-256 (GCM). Estándar de encriptación simétrica usado por gobiernos y corporaciones.',
   },
   {
     id: 'XOR',
     name: 'XOR',
     icon: XorIcon,
     description: 'Cifrado binario con operación XOR. Muy seguro y reversible.',
-    tooltip: 'Cifrado bit a bit. Teóricamente irrompible si la clave es aleatoria y tan larga como el mensaje. Muy seguro para uso general.',
+    tooltip: 'Cifrado bit a bit. Teóricamente irrompible si la clave es aleatoria.',
   },
   {
     id: 'CAESAR',
     name: 'César',
     icon: CaesarIcon,
     description: 'Cifrado clásico por desplazamiento de caracteres.',
-    tooltip: 'Un cifrado histórico que desplaza letras. Fácil de romper por análisis de frecuencia. No usar para datos sensibles.',
+    tooltip: 'Un cifrado histórico que desplaza letras. Fácil de romper.',
   },
   {
     id: 'BASE64',
     name: 'Base64',
     icon: Base64Icon,
     description: 'Codificación estándar. La clave actúa como validador.',
-    tooltip: 'No es un cifrado, sino una codificación para transmitir datos. Es públicamente reversible y no ofrece ninguna seguridad.',
+    tooltip: 'No es un cifrado, sino una codificación para transmitir datos.',
   },
 ];

@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect, useRef } from 'react';
+import { LayoutGrid, Inbox, ArrowUpRight, Loader2, Square } from 'lucide-react';
 
 // --- TYPES ---
 export interface AppItem {
@@ -117,18 +117,17 @@ export const AppMenu: React.FC = () => {
         onClick={() => setIsOpen(!isOpen)}
         className={`flex items-center space-x-2 px-4 py-2 rounded-xl transition-all duration-300 font-bold focus:outline-none group ${
           isOpen 
-            ? 'bg-black text-white shadow-lg shadow-black/10' 
-            : 'bg-white text-black border border-gray-100 hover:border-black'
+            ? 'bg-gray-900 text-white shadow-lg shadow-black/10' 
+            : 'bg-white text-gray-900 border border-gray-100 hover:border-gray-900'
         }`}
       >
         <div className="relative flex items-center justify-center">
-            <i className={`fas fa-grid-2 text-sm transition-transform duration-500 ${isOpen ? 'rotate-90 text-red-500' : 'text-gray-400 group-hover:text-black'}`}></i>
-            <i className={`fas fa-th-large text-[10px] absolute transition-opacity duration-300 ${isOpen ? 'opacity-0' : 'opacity-100'}`}></i>
+            <LayoutGrid size={16} className={`transition-transform duration-500 ${isOpen ? 'rotate-90 text-red-500' : 'text-gray-400 group-hover:text-gray-900'}`} />
         </div>
-        <span className="text-xs uppercase tracking-widest">App</span>
+        <span className="text-[10px] uppercase tracking-widest">App</span>
         {!loading && apps.length > 0 && (
           <span className={`px-1.5 py-0.5 text-[9px] rounded-md font-black transition-colors ${
-            isOpen ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-400 group-hover:bg-black group-hover:text-white'
+            isOpen ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-400 group-hover:bg-gray-900 group-hover:text-white'
           }`}>
             {apps.length}
           </span>
@@ -136,9 +135,9 @@ export const AppMenu: React.FC = () => {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-3 w-72 bg-white border border-gray-100 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] z-50 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300 ring-1 ring-black/5">
+        <div className="absolute right-0 mt-3 w-72 bg-white border border-gray-100 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] z-[100] overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300 ring-1 ring-black/5">
           <div className="p-4 border-b border-gray-50 bg-gray-50/50 flex items-center justify-between">
-            <h3 className="text-[10px] font-black text-black/40 uppercase tracking-[0.2em]">Aplicaciones</h3>
+            <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Ecosistema Tligent</h3>
             <div className="flex space-x-1">
                 <div className="w-1.5 h-1.5 rounded-full bg-red-500/20"></div>
                 <div className="w-1.5 h-1.5 rounded-full bg-gray-200"></div>
@@ -148,13 +147,13 @@ export const AppMenu: React.FC = () => {
           <div className="max-h-[400px] overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-gray-200">
             {loading ? (
               <div className="p-12 flex flex-col items-center justify-center space-y-3">
-                <div className="w-5 h-5 border-2 border-gray-200 border-t-red-600 rounded-full animate-spin"></div>
+                <Loader2 size={24} className="text-red-700 animate-spin" />
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Sincronizando</p>
               </div>
             ) : apps.length === 0 ? (
               <div className="p-12 text-center text-gray-300">
-                <i className="fas fa-inbox text-2xl mb-2 opacity-20"></i>
-                <p className="text-[10px] font-bold uppercase tracking-widest">Vacío</p>
+                <Inbox size={32} className="mx-auto mb-2 opacity-20" />
+                <p className="text-[10px] font-bold uppercase tracking-widest">Sin Aplicaciones</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-1">
@@ -181,17 +180,17 @@ export const AppMenu: React.FC = () => {
                       href={app.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="group flex items-center p-3 rounded-xl hover:bg-black hover:shadow-lg hover:shadow-black/5 transition-all duration-200 border border-transparent active:scale-[0.98]"
+                      className="group flex items-center p-3 rounded-xl hover:bg-gray-900 hover:shadow-lg hover:shadow-black/5 transition-all duration-200 border border-transparent active:scale-[0.98]"
                     >
-                      <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-[10px] font-black text-black flex-shrink-0 group-hover:bg-red-600 group-hover:text-white transition-colors duration-200">
+                      <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-[10px] font-black text-gray-900 flex-shrink-0 group-hover:bg-red-600 group-hover:text-white transition-colors duration-200">
                         {getInitials(app.name)}
                       </div>
                       <div className="ml-3 flex-1 overflow-hidden">
                         <div className="flex items-center justify-between">
-                            <p className="text-sm font-bold text-black group-hover:text-white truncate leading-none transition-colors duration-200">
+                            <p className="text-sm font-bold text-gray-900 group-hover:text-white truncate leading-none transition-colors duration-200">
                                 {app.name}
                             </p>
-                            <i className="fas fa-arrow-up-right text-[8px] text-gray-300 opacity-0 group-hover:opacity-100 group-hover:text-red-500 transition-all transform translate-y-1 group-hover:translate-y-0"></i>
+                            <ArrowUpRight size={12} className="text-gray-300 opacity-0 group-hover:opacity-100 group-hover:text-red-500 transition-all transform translate-y-1 group-hover:translate-y-0" />
                         </div>
                         <p className="text-[10px] text-gray-400 group-hover:text-white/40 truncate mt-1.5 pl-3 transition-colors duration-200">
                           {hostname}

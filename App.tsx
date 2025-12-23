@@ -1,11 +1,10 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { ALGORITHMS, SECRET_PHRASES } from './constants';
 import { encrypt, decrypt, AlgorithmId, ValidationResult, PasswordStrength } from './services/cryptoService';
-import { EyeIcon, EyeSlashedIcon, WandIcon, TrashIcon, ClipboardIcon, CheckIcon, ArrowUpCircleIcon, XCircleIcon, CheckCircleIcon, XIcon, AesIcon, BookOpenIcon } from './components/icons';
-import Footer from './components/Footer';
-import LoginGuard from './components/LoginOverlay';
-import Tutorial from './components/Tutorial';
-import { AppMenu } from './components/AppMenu';
+import { EyeIcon, EyeSlashedIcon, WandIcon, ClipboardIcon, CheckIcon, ArrowUpCircleIcon, XCircleIcon, CheckCircleIcon, XIcon, AesIcon } from './components/icons';
+import { Shell } from './Plantilla/Shell';
+import { Security } from './Plantilla/Seguridad';
+import { getAllowedIps } from './Plantilla/Parameters';
 
 // --- UTILS ---
 const playCopySound = () => {
@@ -16,7 +15,6 @@ const playCopySound = () => {
         const gainNode = audioContext.createGain();
         oscillator.connect(gainNode);
         gainNode.connect(audioContext.destination);
-
         gainNode.gain.setValueAtTime(0, audioContext.currentTime);
         gainNode.gain.linearRampToValueAtTime(0.4, audioContext.currentTime + 0.01);
         oscillator.frequency.setValueAtTime(1000, audioContext.currentTime);
@@ -24,422 +22,222 @@ const playCopySound = () => {
         oscillator.start(audioContext.currentTime);
         gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.1);
         oscillator.stop(audioContext.currentTime + 0.1);
-    } catch (e) {
-        console.error("No se pudo reproducir el sonido de copiado:", e);
-    }
+    } catch (e) {}
 };
 
-// --- CUSTOM HOOKS ---
 function useLocalStorage<T>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
   const [storedValue, setStoredValue] = useState<T>(() => {
-    if (typeof window === 'undefined') {
-      return initialValue;
-    }
     try {
       const item = window.localStorage.getItem(key);
       return item ? JSON.parse(item) : initialValue;
     } catch (error) {
-      console.error(error);
       return initialValue;
     }
   });
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
     try {
-      const valueToStore = typeof storedValue === 'function' ? storedValue(storedValue) : storedValue;
-      window.localStorage.setItem(key, JSON.stringify(valueToStore));
-    } catch (error) {
-      console.error(error);
-    }
+      window.localStorage.setItem(key, JSON.stringify(storedValue));
+    } catch (error) {}
   }, [key, storedValue]);
 
   return [storedValue, setStoredValue];
 }
 
-const useSecretPhraseValidation = (secretPhrase: string): { validation: ValidationResult, strength: PasswordStrength } => {
-  const validation = useMemo<ValidationResult>(() => {
-    if (!secretPhrase) return { status: 'idle', message: null };
-    if (secretPhrase.length < 8) return { status: 'invalid', message: 'La frase debe tener al menos 8 caracteres.' };
-    const hasLetter = /[a-zA-Z]/.test(secretPhrase);
-    const hasNumber = /[0-9]/.test(secretPhrase);
-    if (!hasLetter || !hasNumber) return { status: 'invalid', message: 'La frase debe incluir letras y números.' };
-    return { status: 'valid', message: '¡Frase secreta válida!' };
-  }, [secretPhrase]);
-
-  const strength = useMemo<PasswordStrength>(() => {
-    if (!secretPhrase) return { label: '', color: 'bg-gray-200', width: '0%', textColor: 'text-gray-500' };
-    if (SECRET_PHRASES.includes(secretPhrase)) return { label: 'Muy Débil', color: 'bg-red-500', width: '15%', textColor: 'text-red-500' };
-    if (secretPhrase.length < 8) return { label: 'Muy Débil', color: 'bg-red-500', width: '15%', textColor: 'text-red-500' };
-    
-    let score = 0;
-    if (/[a-z]/.test(secretPhrase)) score++;
-    if (/[A-Z]/.test(secretPhrase)) score++;
-    if (/[0-9]/.test(secretPhrase)) score++;
-    if (/[^a-zA-Z0-9]/.test(secretPhrase)) score++;
-    if (secretPhrase.length >= 12) score++;
-
-    const width = `${(score / 5) * 100}%`;
-    switch (score) {
-      case 1: return { label: 'Débil', color: 'bg-red-500', width, textColor: 'text-red-500' };
-      case 2: return { label: 'Aceptable', color: 'bg-orange-500', width, textColor: 'text-orange-500' };
-      case 3: case 4: return { label: 'Buena', color: 'bg-yellow-400', width, textColor: 'text-yellow-600' };
-      case 5: return { label: 'Fuerte', color: 'bg-green-600', width, textColor: 'text-green-600' };
-      default: return { label: 'Muy Débil', color: 'bg-red-500', width: '15%', textColor: 'text-red-500' };
-    }
-  }, [secretPhrase]);
-
-  return { validation, strength };
-};
-
-const useCryptoOperations = () => {
-    const [result, setResult] = useState<string>('');
-    const [isLoading, setIsLoading] = useState<boolean>(false);
-    const [error, setError] = useState<string | null>(null);
-    const [lastOperation, setLastOperation] = useState<'encrypt' | 'decrypt' | null>(null);
-
-    const handleOperation = useCallback(async (
-        operation: 'encrypt' | 'decrypt',
-        content: string,
-        secretPhrase: string,
-        algorithm: AlgorithmId
-    ) => {
-        setError(null);
-        if (!content || !secretPhrase) {
-            setError('Se requiere contenido y una frase secreta.');
-            return;
-        }
-        setIsLoading(true);
-        try {
-            const operationFn = operation === 'encrypt' ? encrypt : decrypt;
-            const res = await operationFn(content, secretPhrase, algorithm);
-            setResult(res);
-            setLastOperation(operation);
-        } catch (e) {
-            setError(e instanceof Error ? e.message : `Ocurrió un error desconocido durante la ${operation === 'encrypt' ? 'encriptación' : 'desencriptación'}.`);
-            setResult('');
-        } finally {
-            setIsLoading(false);
-        }
-    }, []);
-
-    const clearResult = () => {
-        setResult('');
-        setLastOperation(null);
-    };
-
-    return { result, isLoading, error, lastOperation, handleOperation, clearResult, setError };
-};
-
-const useClipboard = (text: string) => {
-    const [isCopied, setIsCopied] = useState(false);
-
-    const copy = useCallback(() => {
-        if (!text) return;
-        navigator.clipboard.writeText(text).then(() => {
-            playCopySound();
-            setIsCopied(true);
-            const timer = setTimeout(() => setIsCopied(false), 2000);
-            return () => clearTimeout(timer);
-        }).catch(err => {
-            console.error('Error al copiar el texto: ', err);
-            // Consider setting an error state to show in the UI
-        });
-    }, [text]);
-
-    return { isCopied, copy };
-};
-
-// --- Toast Component ---
-interface ToastProps {
-  message: string | null;
-  onClose: () => void;
-}
-const Toast: React.FC<ToastProps> = ({ message, onClose }) => {
-    const [isVisible, setIsVisible] = useState(false);
-
-    useEffect(() => {
-        if (message) {
-            setIsVisible(true);
-            const timer = setTimeout(() => {
-                setIsVisible(false);
-                 // Allow animation to finish before calling the parent's onClose
-                setTimeout(onClose, 300);
-            }, 5000);
-            return () => {
-                clearTimeout(timer);
-            };
-        } else {
-            setIsVisible(false);
-        }
-    }, [message, onClose]);
-
-    const handleClose = () => {
-        setIsVisible(false);
-        setTimeout(onClose, 300); 
-    };
-    
-    if (!message && !isVisible) return null;
-
-    return (
-        <div
-          role="alert"
-          aria-live="assertive"
-          aria-atomic="true"
-          className={`fixed top-5 left-1/2 -translate-x-1/2 w-auto max-w-sm z-50 p-4 bg-red-600 text-white rounded-lg shadow-lg flex items-center space-x-3 transition-all duration-300 ease-in-out
-            ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-16 pointer-events-none'}`
-          }
-        >
-          <XCircleIcon className="h-6 w-6 flex-shrink-0" />
-          <span className="flex-grow text-sm font-medium">{message}</span>
-          <button
-            onClick={handleClose}
-            aria-label="Cerrar"
-            className="p-1 rounded-full hover:bg-red-700 transition-colors"
-          >
-            <XIcon className="h-4 w-4" />
-          </button>
-        </div>
-      );
-};
-
-
 const App: React.FC = () => {
-  const [isIpCheckLoading, setIsIpCheckLoading] = useState(true);
+  // --- TEMPLATE STATES ---
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [apiKey, setApiKey] = useLocalStorage('gemini_api_key', '');
   const [userIp, setUserIp] = useState<string | null>(null);
-  const [isIpWhitelisted, setIsIpWhitelisted] = useState(false);
+  
+  // --- APP STATES ---
   const [content, setContent] = useState<string>('');
   const [secretPhrase, setSecretPhrase] = useState<string>('');
   const [isSecretVisible, setIsSecretVisible] = useState<boolean>(false);
   const [selectedAlgorithm, setSelectedAlgorithm] = useLocalStorage<AlgorithmId>('encrypt-ia-selected-algorithm', 'AES');
-  const [resultKey, setResultKey] = useState(0);
+  const [result, setResult] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [lastOperation, setLastOperation] = useState<'encrypt' | 'decrypt' | null>(null);
+  const [isCopied, setIsCopied] = useState(false);
 
-  const [tutorialCompleted, setTutorialCompleted] = useLocalStorage('tutorial-completed-v1', false);
-  const [isTutorialVisible, setIsTutorialVisible] = useState(false);
-  
-  const { validation, strength: passwordStrength } = useSecretPhraseValidation(secretPhrase);
-  const { result, isLoading, error, lastOperation, handleOperation, clearResult, setError } = useCryptoOperations();
-  const { isCopied, copy: handleCopy } = useClipboard(result);
-  
-  useEffect(() => {
-    // Only show tutorial automatically if it hasn't been completed and IP check is done.
-    if (!tutorialCompleted && !isIpCheckLoading) {
-        setIsTutorialVisible(true);
-    }
-  }, [tutorialCompleted, isIpCheckLoading]);
-
+  // --- INITIALIZATION (IP CHECK) ---
   useEffect(() => {
     const checkIp = async () => {
-      const allowedIps = ['83.45.135.87', '37.223.23.214'];
-      const ipServices = [
-        'https://ipinfo.io/json',
-        'https://api.ipify.org?format=json',
-      ];
-      
-      let currentUserIp: string | null = null;
-
-      for (const url of ipServices) {
-        try {
-          const response = await fetch(url, { headers: { 'Accept': 'application/json' }});
-          if (!response.ok) throw new Error(`Service ${url} failed with status ${response.status}`);
-          const data = await response.json();
-          if (data && data.ip) {
-            currentUserIp = data.ip;
-            break; 
-          }
-        } catch (e) {
-          console.warn(`Could not fetch IP from ${url}:`, e);
-        }
-      }
-
       try {
-        if (currentUserIp) {
-            setUserIp(currentUserIp);
-            if (allowedIps.includes(currentUserIp)) {
-              setIsIpWhitelisted(true);
-            }
-        } else {
-            throw new Error('All IP services failed');
-        }
-      } catch (error) {
-        console.error("IP check failed:", error);
-      } finally {
-        setIsIpCheckLoading(false);
+        const response = await fetch('https://api.ipify.org?format=json');
+        const data = await response.json();
+        setUserIp(data.ip);
+      } catch (e) {
+        console.error("IP fetch error", e);
       }
     };
     checkIp();
   }, []);
 
-  const activeAlgorithm = useMemo(() => ALGORITHMS.find(a => a.id === selectedAlgorithm), [selectedAlgorithm]);
+  const isIpWhitelisted = useMemo(() => {
+    if (!userIp) return false;
+    return getAllowedIps().includes(userIp);
+  }, [userIp]);
 
-  const handleEncrypt = () => {
-    handleOperation('encrypt', content, secretPhrase, selectedAlgorithm);
-    setResultKey(key => key + 1);
+  // --- CRYPTO LOGIC ---
+  const handleCrypto = async (op: 'encrypt' | 'decrypt') => {
+    setError(null);
+    if (!content || !secretPhrase) {
+      setError('Se requiere contenido y una frase secreta.');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const res = op === 'encrypt' 
+        ? await encrypt(content, secretPhrase, selectedAlgorithm)
+        : await decrypt(content, secretPhrase, selectedAlgorithm);
+      setResult(res);
+      setLastOperation(op);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error en la operación');
+    } finally {
+      setIsLoading(false);
+    }
   };
-  const handleDecrypt = () => {
-    handleOperation('decrypt', content, secretPhrase, selectedAlgorithm);
-    setResultKey(key => key + 1);
+
+  const handleCopy = () => {
+    if (!result) return;
+    navigator.clipboard.writeText(result).then(() => {
+      playCopySound();
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    });
   };
-  
-  const handleGeneratePhrase = useCallback(() => {
+
+  const handleGeneratePhrase = () => {
     const randomIndex = Math.floor(Math.random() * SECRET_PHRASES.length);
     setSecretPhrase(SECRET_PHRASES[randomIndex]);
-  }, []);
-
-  const handleClear = useCallback(() => {
-    setContent('');
-    setSecretPhrase('');
-    clearResult();
-    setError(null);
-  }, [clearResult, setError]);
-
-  const handleMoveResultToContent = useCallback(() => {
-    if (!result) return;
-    setContent(result);
-    clearResult();
-  }, [result, clearResult]);
-
-  const inputBorderClasses = useMemo(() => {
-    switch (validation.status) {
-      case 'invalid': return 'border-red-500 focus:ring-red-500 focus:border-red-500';
-      case 'valid': return 'border-green-500 focus:ring-green-500 focus:border-green-500';
-      default: return 'border-gray-300 focus:ring-red-500 focus:border-red-500';
-    }
-  }, [validation.status]);
-
-  const handleCloseTutorial = () => {
-    setIsTutorialVisible(false);
-    setTutorialCompleted(true);
   };
 
-  if (isIpCheckLoading) {
-    return (
-      <div className="bg-gray-100 min-h-screen flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-dashed rounded-full animate-spin border-red-600" role="status">
-          <span className="sr-only">Cargando...</span>
-        </div>
-      </div>
-    );
+  // --- RENDER GUARDS ---
+  if (!isAuthenticated && !isIpWhitelisted) {
+    return <Security onLogin={() => setIsAuthenticated(true)} />;
   }
 
   return (
-    <LoginGuard isIpWhitelisted={isIpWhitelisted}>
-      {isTutorialVisible && <Tutorial onClose={handleCloseTutorial} />}
-      <div className="bg-gray-100 text-gray-800 min-h-screen flex items-center justify-center p-3 sm:p-4">
-        <Toast message={error} onClose={() => setError(null)} />
+    <Shell apiKey={apiKey} onApiKeySave={setApiKey} userIp={userIp}>
+      <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
         
-        <main className="bg-white border border-gray-200 p-4 rounded-xl shadow-xl w-full max-w-4xl space-y-4">
-          <header className="flex justify-between items-start">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <AesIcon className="h-7 w-7 sm:h-8 sm:w-8 text-red-600 flex-shrink-0" />
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-                  Encript <span className="text-red-600">IA</span>
-                </h1>
-                <p className="text-gray-500 text-xs sm:text-sm mt-1">
-                  Protege tu texto con cifrado de nivel militar.
-                </p>
+        {/* Toast Error */}
+        {error && (
+          <div className="bg-red-50 border-l-4 border-red-700 p-4 rounded-xl flex items-center justify-between shadow-sm mb-4">
+            <div className="flex items-center gap-3">
+              <XCircleIcon className="h-5 w-5 text-red-700" />
+              <p className="text-sm font-bold text-red-900 uppercase tracking-tight">{error}</p>
+            </div>
+            <button onClick={() => setError(null)} className="text-red-700 hover:bg-red-100 p-1 rounded-full">
+              <XIcon className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        <div className="grid md:grid-cols-2 gap-8">
+          {/* Configuración */}
+          <div className="bg-white border border-gray-100 rounded-3xl p-6 shadow-xl space-y-6">
+            <div>
+              <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-400 mb-4">1. Algoritmo</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {ALGORITHMS.map(algo => (
+                  <button 
+                    key={algo.id} 
+                    onClick={() => setSelectedAlgorithm(algo.id)}
+                    className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all ${
+                      selectedAlgorithm === algo.id 
+                        ? 'bg-gray-900 border-gray-900 text-white shadow-lg' 
+                        : 'bg-gray-50 border-gray-100 text-gray-400 hover:border-gray-900 hover:text-gray-900'
+                    }`}
+                  >
+                    <algo.icon className="h-6 w-6 mb-2" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">{algo.name}</span>
+                  </button>
+                ))}
               </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <button onClick={() => setIsTutorialVisible(true)} className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-100 rounded-full transition-all duration-200" aria-label="Mostrar tutorial">
-                <BookOpenIcon className="h-5 w-5" />
-              </button>
-              <button onClick={handleClear} className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-100 rounded-full transition-all duration-200" aria-label="Limpiar todo">
-                <TrashIcon className="h-5 w-5" />
-              </button>
-              <AppMenu />
-            </div>
-          </header>
 
-          <div className="grid md:grid-cols-2 md:gap-4 space-y-4 md:space-y-0">
-            {/* Columna Izquierda: Controles */}
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">Algoritmo de Encriptación</label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {ALGORITHMS.map(algo => (
-                    <button key={algo.id} onClick={() => setSelectedAlgorithm(algo.id)} title={algo.tooltip} className={`p-2 border rounded-lg flex flex-col items-center justify-center text-center transition-all duration-200 ${selectedAlgorithm === algo.id ? 'bg-red-50 border-red-600 ring-1 ring-red-600' : 'bg-white border-gray-300 hover:border-red-500'}`} aria-pressed={selectedAlgorithm === algo.id}>
-                      <algo.icon className={`h-5 w-5 mb-1 ${selectedAlgorithm === algo.id ? 'text-red-600' : 'text-gray-500'}`} />
-                      <span className="text-xs font-semibold">{algo.name}</span>
-                    </button>
-                  ))}
+            <div>
+              <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-400 mb-4">2. Frase Secreta</h3>
+              <div className="relative">
+                <input
+                  type={isSecretVisible ? 'text' : 'password'}
+                  value={secretPhrase}
+                  onChange={(e) => setSecretPhrase(e.target.value)}
+                  placeholder="Tu llave privada..."
+                  className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-4 pr-24 text-sm font-bold focus:ring-2 focus:ring-red-700 outline-none"
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex gap-2">
+                  <button onClick={handleGeneratePhrase} className="p-2 text-gray-400 hover:text-red-700"><WandIcon className="h-5 w-5" /></button>
+                  <button onClick={() => setIsSecretVisible(!isSecretVisible)} className="p-2 text-gray-400 hover:text-red-700">
+                    {isSecretVisible ? <EyeSlashedIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
+                  </button>
                 </div>
-                {activeAlgorithm && <p className="text-xs text-gray-500 mt-2">{activeAlgorithm.description}</p>}
               </div>
+            </div>
 
-              <div>
-                <label htmlFor="secret-phrase" className="block text-xs font-medium text-gray-700 mb-1.5">Frase Secreta</label>
-                <div className="relative flex items-center">
-                  <input
-                    id="secret-phrase"
-                    type={isSecretVisible ? 'text' : 'password'}
-                    value={secretPhrase}
-                    onChange={(e) => setSecretPhrase(e.target.value)}
-                    placeholder="Introduce tu frase secreta..."
-                    className={`w-full text-sm bg-white border rounded-md h-8 pl-3 pr-24 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 transition ${inputBorderClasses}`}
-                    aria-invalid={validation.status === 'invalid'}
-                    aria-describedby="secret-phrase-validation"
-                  />
-                  <div className="absolute right-1.5 flex items-center space-x-1.5">
-                    {validation.status === 'valid' && <CheckCircleIcon className="h-4 w-4 text-green-500" />}
-                    {validation.status === 'invalid' && <XCircleIcon className="h-4 w-4 text-red-500" />}
-                    <button onClick={handleGeneratePhrase} aria-label="Generar frase secreta" className="text-gray-400 hover:text-gray-800"><WandIcon className="h-4 w-4" /></button>
-                    <button onClick={() => setIsSecretVisible(p => !p)} aria-label={isSecretVisible ? 'Ocultar' : 'Mostrar'} className="text-gray-400 hover:text-gray-800">{isSecretVisible ? <EyeSlashedIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}</button>
+            <div>
+              <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-400 mb-4">3. Texto Original</h3>
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                rows={4}
+                className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-red-700 outline-none resize-none"
+                placeholder="Escribe aquí el mensaje..."
+              />
+            </div>
+          </div>
+
+          {/* Acciones y Resultado */}
+          <div className="flex flex-col space-y-6">
+            <div className="flex gap-4">
+              <button 
+                onClick={() => handleCrypto('encrypt')}
+                disabled={isLoading}
+                className="flex-1 bg-gray-900 hover:bg-black text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all active:scale-95 shadow-xl shadow-gray-200 disabled:opacity-50"
+              >
+                {isLoading ? '...' : 'Encriptar'}
+              </button>
+              <button 
+                onClick={() => handleCrypto('decrypt')}
+                disabled={isLoading}
+                className="flex-1 bg-white border-2 border-gray-900 text-gray-900 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all active:scale-95 disabled:opacity-50"
+              >
+                {isLoading ? '...' : 'Desencriptar'}
+              </button>
+            </div>
+
+            <div className={`flex-1 rounded-3xl p-6 transition-all border ${result ? 'bg-white border-red-100 shadow-2xl' : 'bg-gray-50 border-dashed border-gray-200 flex flex-col items-center justify-center'}`}>
+              {result ? (
+                <div className="h-full flex flex-col">
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-red-700">
+                      Resultado {lastOperation === 'encrypt' ? 'Cifrado' : 'Limpio'}
+                    </span>
+                    <div className="flex gap-2">
+                      <button onClick={() => { setContent(result); setResult(''); }} className="p-2 bg-gray-50 rounded-lg text-gray-400 hover:text-red-700" title="Subir a contenido"><ArrowUpCircleIcon className="h-4 w-4"/></button>
+                      <button onClick={handleCopy} className={`p-2 rounded-lg transition-colors ${isCopied ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-400 hover:text-red-700'}`}>
+                        {isCopied ? <CheckIcon className="h-4 w-4"/> : <ClipboardIcon className="h-4 w-4"/>}
+                      </button>
+                    </div>
                   </div>
+                  <textarea 
+                    readOnly 
+                    value={result}
+                    className="flex-1 w-full bg-transparent text-sm font-mono focus:outline-none resize-none"
+                  />
                 </div>
-                {validation.message && <p id="secret-phrase-validation" className={`text-xs mt-1 ${validation.status === 'valid' ? 'text-green-600' : 'text-red-600'}`}>{validation.message}</p>}
-                <div className="mt-2">
-                    <div className="flex justify-between items-center mb-1">
-                        <span className="text-xs font-medium text-gray-600">Calidad de la clave:</span>
-                        <span className={`text-xs font-bold ${passwordStrength.textColor}`}>{passwordStrength.label}</span>
-                    </div>
-                    <div className="bg-gray-200 rounded-full h-1.5 w-full overflow-hidden">
-                        <div className={`h-1.5 rounded-full ${passwordStrength.color} transition-all duration-300 ease-in-out`} style={{ width: passwordStrength.width }}></div>
-                    </div>
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="content" className="block text-xs font-medium text-gray-700 mb-1.5">Contenido Original / Cifrado</label>
-                <textarea id="content" value={content} onChange={(e) => setContent(e.target.value)} rows={5} placeholder="Escribe o pega el contenido aquí..." className="w-full text-sm bg-white border border-gray-300 rounded-md p-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500 transition"/>
-              </div>
-            </div>
-
-            {/* Columna Derecha: Acciones y Resultado */}
-            <div className="space-y-3 flex flex-col">
-              <div className="flex items-center gap-3">
-                <button onClick={handleEncrypt} disabled={isLoading || validation.status !== 'valid'} className="flex-1 text-sm h-8 px-4 py-2 bg-gray-900 text-white font-semibold rounded-md shadow-sm hover:bg-black focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100">{isLoading ? 'Encriptando...' : 'Encriptar'}</button>
-                <button onClick={handleDecrypt} disabled={isLoading || !secretPhrase} className="flex-1 text-sm h-8 px-4 py-2 bg-gray-700 text-white font-semibold rounded-md shadow-sm hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100">{isLoading ? 'Desencriptando...' : 'Desencriptar'}</button>
-              </div>
-              
-              <div key={resultKey} className={`pt-2 flex-grow flex flex-col ${result ? 'animate-fade-in' : 'justify-center items-center bg-gray-50 rounded-lg border-2 border-dashed'}`}>
-                {result ? (
-                  <>
-                    <label htmlFor="result" className="block text-xs font-medium text-gray-700 mb-1.5">Resultado ({lastOperation === 'encrypt' ? 'Encriptado' : 'Desencriptado'})</label>
-                    <div className="relative h-full">
-                      <textarea id="result" value={result} readOnly rows={5} className="w-full h-full text-sm bg-gray-50 border border-gray-300 rounded-md p-2 pr-16 text-gray-900 cursor-copy focus:outline-none focus:ring-1 focus:ring-red-500" onClick={(e) => (e.target as HTMLTextAreaElement).select()} />
-                      <div className="absolute top-2 right-2 flex items-center space-x-1">
-                          <button onClick={handleMoveResultToContent} title="Mover resultado a contenido" className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-full transition-all" aria-label="Mover resultado a contenido"><ArrowUpCircleIcon className="h-4 w-4" /></button>
-                          <button onClick={handleCopy} title={isCopied ? "¡Copiado!" : "Copiar al portapapeles"} className={`p-1.5 rounded-full transition-all duration-200 ease-in-out ${isCopied ? 'bg-green-100' : 'hover:bg-gray-100'}`} aria-label="Copiar">
-                              {isCopied ? <CheckIcon className="h-4 w-4 text-green-600" /> : <ClipboardIcon className="h-4 w-4 text-gray-500" />}
-                          </button>
-                      </div>
-                    </div>
-                  </>
-                ) : (<p className="text-gray-400 text-sm">El resultado aparecerá aquí</p>)}
-              </div>
+              ) : (
+                <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest text-center">Esperando ejecución...</p>
+              )}
             </div>
           </div>
-
-          <div className="border-t border-gray-200 pt-4">
-            <Footer userIp={userIp} isIpWhitelisted={isIpWhitelisted} />
-          </div>
-        </main>
+        </div>
       </div>
-    </LoginGuard>
+    </Shell>
   );
 };
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BarChart3, Database, Sparkles, HelpCircle } from 'lucide-react';
+import { Lock, Database, Sparkles, HelpCircle } from 'lucide-react';
 import { COLORS } from './Parameters';
 import { Footer } from './Footer';
 import { Cookies } from './Cookies';
@@ -25,12 +25,12 @@ export const Shell: React.FC<ShellProps> = ({ children, apiKey, onApiKeySave, us
       <header className="sticky top-0 z-50 bg-white mb-8 border-b border-gray-200 pb-6 pt-4 flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-black tracking-tighter text-gray-900 flex items-center gap-2">
-            <BarChart3 className="text-red-700" size={32} />
-            Plantilla<span className="text-red-700">BASE</span>
+            <Lock className="text-red-700" size={32} />
+            Encript<span className="text-red-700"> IA</span>
           </h1>
           <div className="flex items-center gap-4 mt-1">
             <p className="text-gray-400 text-[10px] uppercase font-bold flex items-center gap-1">
-              <Database size={10} /> Scaffolding • <Sparkles size={10} className="text-indigo-500"/> AI READY
+              <Database size={10} /> SECURITY NODE • <Sparkles size={10} className="text-red-500"/> MILITARY GRADE
             </p>
           </div>
         </div>

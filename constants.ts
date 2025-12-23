@@ -1,7 +1,7 @@
 import { AesIcon, XorIcon, CaesarIcon, Base64Icon } from './components/icons';
 import { Algorithm } from './services/cryptoService';
 
-export const APP_VERSION = 'v25.12F';
+export const APP_VERSION = 'v25.12G';
 
 export const SECRET_PHRASES: string[] = [
   "Que la Fuerza te acompañe... siempre.",
